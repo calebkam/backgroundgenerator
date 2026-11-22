@@ -147,6 +147,7 @@ details summary { cursor: pointer; color: var(--mute); font-size: 12.5px; }
     <section class="grp">
       <h2>Pattern</h2>
       <div class="grid2" id="styles"></div>
+      <p class="note">For patterns without lines, Density sets how many shapes and Line weight sets their size.</p>
     </section>
 
     <section class="grp">
@@ -236,7 +237,7 @@ var PALS = {
   amber:    { top: '#140c08', bot: '#24150c', g1: '#7a4a1f', g2: '#5a2a3a', line: '#e8c090', line2: '#ffb4a0' }
 };
 var PAL_NAMES = { midnight: 'Midnight', teal: 'Teal', wine: 'Wine', dusk: 'Dusk', slate: 'Slate', forest: 'Forest', amber: 'Amber' };
-var STYLES = [['flow', 'Flow lines'], ['silk', 'Silk'], ['contour', 'Contours'], ['rings', 'Ripples'], ['beams', 'Beams + motes'], ['glow', 'Glow only']];
+var STYLES = [['flow', 'Flow lines'], ['silk', 'Silk'], ['contour', 'Contours'], ['rings', 'Ripples'], ['beams', 'Beams + motes'], ['bokeh', 'Bokeh'], ['aurora', 'Aurora'], ['mist', 'Mist'], ['stars', 'Stars'], ['hills', 'Hills'], ['dots', 'Dot grid'], ['facets', 'Facets'], ['glow', 'Glow only']];
 var LOOKS = [
   { n: 'Midnight flow', style: 'flow', pal: 'midnight' },
   { n: 'Teal contours', style: 'contour', pal: 'teal' },
@@ -248,7 +249,14 @@ var LOOKS = [
   { n: 'LED red', style: 'silk', pal: 'led', led: { r: 255, g: 0, b: 0, w: 0 } },
   { n: 'LED green', style: 'contour', pal: 'led', led: { r: 0, g: 255, b: 0, w: 0 } },
   { n: 'LED blue', style: 'flow', pal: 'led', led: { r: 0, g: 0, b: 255, w: 0 } },
-  { n: 'LED white', style: 'rings', pal: 'led', led: { r: 0, g: 0, b: 0, w: 255 } }
+  { n: 'LED white', style: 'rings', pal: 'led', led: { r: 0, g: 0, b: 0, w: 255 } },
+  { n: 'Gold bokeh', style: 'bokeh', pal: 'amber' },
+  { n: 'Forest aurora', style: 'aurora', pal: 'forest' },
+  { n: 'Wine mist', style: 'mist', pal: 'wine' },
+  { n: 'Night stars', style: 'stars', pal: 'midnight' },
+  { n: 'Dusk hills', style: 'hills', pal: 'dusk' },
+  { n: 'Teal dots', style: 'dots', pal: 'teal' },
+  { n: 'Slate facets', style: 'facets', pal: 'slate' }
 ];
 var LEDQ = [['Red', 255, 0, 0, 0], ['Green', 0, 255, 0, 0], ['Blue', 0, 0, 255, 0], ['White', 0, 0, 0, 255], ['Amber', 255, 140, 0, 0], ['Cyan', 0, 255, 255, 0], ['Magenta', 255, 0, 255, 0], ['Warm white', 255, 150, 40, 120]];
 var DEF = { style: 'flow', pal: 'midnight', c: null, loop: 20, motion: 1, angle: -12, density: 1, thick: 1, lineBright: 1, glow: 1, grain: 0.02, seed: 7, res: '1920x1080', soft: 0.35, blur: 0, grad: 0.4, bgAngle: 180, led: { r: 0, g: 0, b: 255, w: 0 } };
@@ -305,6 +313,8 @@ function build() {
   for (var i = 0; i < 6; i++) S.ph.push(r() * TAU);
   for (i = 0; i < 90; i++) S.motes.push({ x: r(), y: r(), p: r() * TAU, r: 1.2 + r() * 2.2 });
   for (i = 0; i < 8; i++) S.beams.push({ c: -0.55 + i * 0.22, w: 0.035 + 0.03 * ((i * 37) % 5) / 5, p: i * 1.9 + S.off });
+  S.r = []; for (i = 0; i < 800; i++) S.r.push(r());
+  S.stars = []; for (i = 0; i < 400; i++) S.stars.push({ x: r(), y: r(), r: r(), p: r() * TAU, h: 1 + Math.floor(r() * 3) });
 }
 
 /* ---------- drawing ---------- */
@@ -324,7 +334,7 @@ function noisePattern(ctx) {
   return ctx.createPattern(noiseCv, 'repeat');
 }
 
-var BG_STRENGTH = { flow: 0.5, silk: 0.5, contour: 0.4, rings: 0.45, beams: 0.45, glow: 0.85 };
+var BG_STRENGTH = { flow: 0.5, silk: 0.5, contour: 0.4, rings: 0.45, beams: 0.45, glow: 0.85, bokeh: 0.5, aurora: 0.35, mist: 0.35, stars: 0.55, hills: 0.5, dots: 0.45, facets: 0.45 };
 var BLOBS = [[0.25, 0.30, 0.12, 0.10, 0.0, 1, 1, 0.42], [0.75, 0.35, 0.10, 0.12, 1.7, 1, 2, 0.40], [0.50, 0.80, 0.14, 0.08, 3.1, 2, 1, 0.38]];
 
 /* colour helpers for gradients and the LED palette */
@@ -537,6 +547,157 @@ function drawBeams(ctx, W, H, ph) {
   ctx.globalCompositeOperation = 'source-over';
 }
 
+/* ---------- patterns without lines ---------- */
+function pc(t) { return lerpHex(P.c.line, P.c.line2 || P.c.line, P.grad * Math.max(0, Math.min(1, t))); }
+function R(i) { return S.r[((i % 800) + 800) % 800]; }
+var GAUSS_STOPS = [0, 0.15, 0.3, 0.45, 0.6, 0.75, 0.9, 1];
+
+function drawBokeh(ctx, W, H, ph) {
+  var m = P.motion, n = Math.round(26 * P.density), sf = Math.min(1, P.soft);
+  ctx.globalCompositeOperation = 'lighter';
+  for (var i = 0; i < n; i++) {
+    var h = 1 + (i % 2), p = R(i * 5 + 3) * TAU;
+    var x = (R(i * 5) + 0.03 * m * Math.sin(h * ph + p)) * W, y = (R(i * 5 + 1) + 0.03 * m * Math.cos(h * ph + p * 1.7)) * H;
+    var rad = (0.035 + 0.11 * R(i * 5 + 2) * R(i * 5 + 2)) * H * P.thick;
+    var a = (0.05 + 0.12 * R(i * 5 + 4)) * P.lineBright * (0.6 + 0.4 * Math.sin(ph + p));
+    var col = pc(R(i * 5 + 4)), rim = 0.78 - 0.5 * sf;
+    var g = ctx.createRadialGradient(x, y, 0, x, y, rad);
+    g.addColorStop(0, rgba(col, a * 0.55)); g.addColorStop(rim, rgba(col, a * 0.8));
+    g.addColorStop(rim + (1 - rim) * 0.65, rgba(col, a)); g.addColorStop(1, rgba(col, 0));
+    ctx.fillStyle = g; ctx.fillRect(x - rad, y - rad, 2 * rad, 2 * rad);
+  }
+  ctx.globalCompositeOperation = 'source-over';
+}
+
+function drawAurora(ctx, W, H, ph) {
+  var m = P.motion, n = Math.max(2, Math.round(4 * P.density)), K = 64, sf = P.soft;
+  ctx.globalCompositeOperation = 'lighter';
+  for (var i = 0; i < n; i++) {
+    var t = n > 1 ? i / (n - 1) : 0, y0 = (0.26 + 0.44 * t + 0.03 * R(i)) * H;
+    var hh = (0.075 + 0.05 * R(i + 9)) * H * P.thick, col = pc(t), pa = R(i + 20) * TAU;
+    var ctr = [], wid = [], k;
+    for (k = 0; k <= K; k++) {
+      var u = -0.05 + k / K * 1.1;
+      ctr.push(y0 + 0.07 * m * H * Math.sin(TAU * (0.8 + 0.15 * i) * u + ph + pa) + 0.03 * m * H * Math.sin(TAU * 1.9 * u - 2 * ph + pa * 1.3));
+      wid.push(0.7 + 0.3 * Math.sin(TAU * 1.3 * u + ph + i * 1.1 + pa));
+    }
+    for (var j = 0; j < 11; j++) {
+      var half = hh * (1 - j * 0.085) * (1 + 0.8 * sf);
+      ctx.beginPath();
+      for (k = 0; k <= K; k++) { var xx = (-0.05 + k / K * 1.1) * W; if (k === 0) ctx.moveTo(xx, ctr[k] - half * wid[k]); else ctx.lineTo(xx, ctr[k] - half * wid[k]); }
+      for (k = K; k >= 0; k--) ctx.lineTo((-0.05 + k / K * 1.1) * W, ctr[k] + half * wid[k]);
+      ctx.closePath();
+      ctx.fillStyle = rgba(col, 0.02 * P.lineBright);
+      ctx.fill();
+    }
+  }
+  ctx.globalCompositeOperation = 'source-over';
+}
+
+function drawMist(ctx, W, H, ph) {
+  var m = P.motion, n = Math.max(3, Math.round(8 * P.density));
+  ctx.globalCompositeOperation = 'lighter';
+  for (var i = 0; i < n; i++) {
+    var h = 1 + (i % 2), p = R(i * 3 + 2) * TAU;
+    var x = (R(i * 3) + 0.08 * m * Math.sin(h * ph + p)) * W, y = (0.12 + 0.76 * R(i * 3 + 1) + 0.02 * m * Math.cos(ph + p)) * H;
+    var w = (0.35 + 0.4 * R(i + 40)) * W * P.thick, hg = (0.09 + 0.10 * R(i + 60)) * H * P.thick;
+    var a = (0.05 + 0.07 * R(i + 80)) * P.lineBright, col = i % 3 === 0 ? mixHex(P.c.g1, pc(0.5)) : pc(R(i + 100));
+    ctx.save(); ctx.translate(x, y); ctx.scale(w, hg);
+    var g = ctx.createRadialGradient(0, 0, 0, 0, 0, 1);
+    for (var k = 0; k < GAUSS_STOPS.length; k++) g.addColorStop(GAUSS_STOPS[k], rgba(col, a * Math.exp(-Math.pow(1.8 * GAUSS_STOPS[k], 2))));
+    ctx.fillStyle = g; ctx.fillRect(-1, -1, 2, 2); ctx.restore();
+  }
+  ctx.globalCompositeOperation = 'source-over';
+}
+
+function drawStars(ctx, W, H, ph) {
+  var m = P.motion, n = Math.min(S.stars.length, Math.round(140 * P.density)), sc = H / 540 * P.thick;
+  ctx.globalCompositeOperation = 'lighter';
+  for (var i = 0; i < n; i++) {
+    var s = S.stars[i], x = (s.x + 0.004 * m * Math.sin(ph + s.p)) * W, y = (s.y + 0.004 * m * Math.cos(ph + s.p)) * H;
+    var tw = 0.55 + 0.45 * Math.sin(s.h * ph + s.p), size = (0.5 + 2.2 * s.r * s.r * s.r) * sc;
+    var a = (0.2 + 0.6 * s.r) * tw * P.lineBright, col = pc(s.x);
+    if (s.r > 0.93) {
+      var Rr = size * 7 * (1 + P.soft * 0.5), g = ctx.createRadialGradient(x, y, 0, x, y, Rr);
+      g.addColorStop(0, rgba(col, a * 0.4)); g.addColorStop(1, rgba(col, 0));
+      ctx.fillStyle = g; ctx.fillRect(x - Rr, y - Rr, 2 * Rr, 2 * Rr);
+    }
+    ctx.fillStyle = rgba(col, a); ctx.beginPath(); ctx.arc(x, y, Math.max(0.5, size), 0, TAU); ctx.fill();
+  }
+  ctx.globalCompositeOperation = 'source-over';
+}
+
+function drawHills(ctx, W, H, ph) {
+  var c = P.c, m = P.motion, n = Math.max(3, Math.round(5 * P.density)), K = 80;
+  for (var i = 0; i < n; i++) {
+    var t = n > 1 ? i / (n - 1) : 0;
+    var base = (0.46 + 0.42 * t) * H, A1 = (0.07 - 0.03 * t) * H, A2 = 0.025 * H;
+    var w1 = m * 0.8 * Math.sin(ph + i * 1.1 + S.off), w2 = m * 0.8 * Math.sin(2 * ph + i * 0.7 + 1);
+    var f1 = 0.7 + 0.18 * i, f2 = 1.8 + 0.4 * i, p1 = R(i + 150) * TAU, p2 = R(i + 170) * TAU;
+    ctx.beginPath(); ctx.moveTo(-10, H + 10);
+    for (var k = 0; k <= K; k++) {
+      var x = -10 + k / K * (W + 20), u = x / W;
+      ctx.lineTo(x, base + A1 * Math.sin(TAU * f1 * u + p1 + w1) + A2 * Math.sin(TAU * f2 * u + p2 + w2));
+    }
+    ctx.lineTo(W + 10, H + 10); ctx.closePath();
+    var top = lerpHex(lerpHex(c.g1, c.line, 0.22), c.bot, Math.min(1, t * 0.95));
+    var g = ctx.createLinearGradient(0, base - A1 - A2, 0, H);
+    g.addColorStop(0, rgba(top, (0.22 + 0.45 * t) * (0.5 + 0.5 * P.lineBright)));
+    g.addColorStop(1, rgba(c.top, 0.9));
+    ctx.fillStyle = g; ctx.fill();
+  }
+}
+
+function drawDots(ctx, W, H, ph) {
+  var m = P.motion, cols = Math.max(8, Math.round(34 * P.density)), cell = W / cols, rowH = cell * 0.866;
+  var rows = Math.ceil(H / rowH) + 1, sf = Math.min(1, P.soft), pal = [], amt = 0.3 + 0.7 * Math.min(m, 1.4);
+  for (var q = 0; q < 12; q++) pal.push(pc(q / 11));
+  ctx.globalCompositeOperation = 'lighter';
+  for (var j = 0; j < rows; j++) for (var i = 0; i <= cols; i++) {
+    var x = (i + (j % 2 ? 0.5 : 0)) * cell, y = j * rowH, u = x / W, v = y / H;
+    var f = 0.5 + 0.25 * amt * (Math.sin(TAU * (1.3 * u + 0.6 * v) + ph + S.off) + Math.sin(TAU * (0.7 * u - 1.1 * v) - 2 * ph + 1.7));
+    f = Math.max(0, Math.min(1, f));
+    var rr = cell * 0.5 * (0.12 + 0.88 * f) * 0.8 * P.thick, a = (0.06 + 0.2 * f) * P.lineBright;
+    ctx.fillStyle = pal[Math.min(11, Math.floor(u * 11.99))];
+    ctx.globalAlpha = Math.min(1, a * 0.25 * (0.4 + 1.2 * sf)); ctx.beginPath(); ctx.arc(x, y, rr * 1.8, 0, TAU); ctx.fill();
+    ctx.globalAlpha = Math.min(1, a); ctx.beginPath(); ctx.arc(x, y, rr, 0, TAU); ctx.fill();
+  }
+  ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
+}
+
+function drawFacets(ctx, W, H, ph) {
+  var c = P.c, m = P.motion, cols = Math.max(4, Math.round(9 * P.density)), cw = W / cols, rows = Math.ceil(H / cw) + 1, sc = H / 540;
+  var Ly = layer(W, H), lc = Ly.getContext('2d');
+  lc.setTransform(1, 0, 0, 1, 0, 0); lc.globalCompositeOperation = 'source-over'; lc.globalAlpha = 1; lc.clearRect(0, 0, W, H);
+  var pts = [], i, j;
+  for (j = 0; j <= rows; j++) {
+    pts.push([]);
+    for (i = 0; i <= cols; i++) {
+      var id = i * 13 + j * 7, jx = (R(id) - 0.5) * cw * 0.7, jy = (R(id + 1) - 0.5) * cw * 0.7, sw = 0.12 * cw * m;
+      if (i === 0 || i === cols) jx = 0;
+      pts[j].push([i * cw + jx + sw * Math.sin(ph + R(id + 2) * TAU), j * cw + jy + sw * Math.cos(ph + R(id + 3) * TAU)]);
+    }
+  }
+  function tri(a, b, d, id) {
+    var cx = (a[0] + b[0] + d[0]) / 3, cy = (a[1] + b[1] + d[1]) / 3;
+    var bri = 0.5 + 0.5 * Math.sin((1 + (id % 2)) * ph + R(id) * TAU);
+    lc.fillStyle = lerpHex('#000000', lerpHex(c.g2, pc(cx / W * 0.6 + cy / H * 0.4), 0.6), 0.15 + 0.85 * bri);
+    lc.beginPath();
+    [a, b, d].forEach(function (p, k) {
+      var dx = p[0] - cx, dy = p[1] - cy, l = Math.hypot(dx, dy) || 1, x = p[0] + dx / l * 1.2 * sc, y = p[1] + dy / l * 1.2 * sc;
+      if (k === 0) lc.moveTo(x, y); else lc.lineTo(x, y);
+    });
+    lc.closePath(); lc.fill();
+  }
+  for (j = 0; j < rows; j++) for (i = 0; i < cols; i++) {
+    tri(pts[j][i], pts[j][i + 1], pts[j + 1][i], (i + j * cols) * 2);
+    tri(pts[j][i + 1], pts[j + 1][i + 1], pts[j + 1][i], (i + j * cols) * 2 + 1);
+  }
+  ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = Math.min(1, 0.15 * P.lineBright);
+  ctx.drawImage(Ly, 0, 0);
+  ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
+}
+
 var blurCv = null, smallCv = null, hasFilter = ('filter' in CanvasRenderingContext2D.prototype);
 function scratch(c, W, H) {
   if (!c || c.width !== W || c.height !== H) { c = document.createElement('canvas'); c.width = W; c.height = H; }
@@ -551,6 +712,13 @@ function drawScene(ctx, W, H, ph) {
     case 'contour': drawContour(ctx, W, H, ph); break;
     case 'rings': drawRings(ctx, W, H, ph); break;
     case 'beams': drawBeams(ctx, W, H, ph); break;
+    case 'bokeh': drawBokeh(ctx, W, H, ph); break;
+    case 'aurora': drawAurora(ctx, W, H, ph); break;
+    case 'mist': drawMist(ctx, W, H, ph); break;
+    case 'stars': drawStars(ctx, W, H, ph); break;
+    case 'hills': drawHills(ctx, W, H, ph); break;
+    case 'dots': drawDots(ctx, W, H, ph); break;
+    case 'facets': drawFacets(ctx, W, H, ph); break;
   }
   ctx.globalCompositeOperation = 'source-over';
   var vg = ctx.createRadialGradient(W / 2, H / 2, H * 0.3, W / 2, H / 2, Math.hypot(W, H) * 0.55);
